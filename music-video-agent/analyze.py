@@ -20,7 +20,8 @@ def analyze_audio(song_path: str, output_dir: str = "shots") -> dict:
     # BPM and beat grid
     tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
     beat_times = librosa.frames_to_time(beat_frames, sr=sr).tolist()
-    bpm = float(tempo)
+    # librosa >= 0.10 returns tempo as a 1-element array
+    bpm = float(np.atleast_1d(tempo)[0])
 
     # Section boundaries via MFCC + agglomerative clustering
     hop_length = 512
@@ -34,6 +35,16 @@ def analyze_audio(song_path: str, output_dir: str = "shots") -> dict:
         bound_times.insert(0, 0.0)
     if bound_times[-1] < duration - 0.5:
         bound_times.append(duration)
+
+    # Drop boundaries that produce sections shorter than 3 seconds
+    min_section = 3.0
+    filtered = [bound_times[0]]
+    for t in bound_times[1:]:
+        if t - filtered[-1] >= min_section:
+            filtered.append(t)
+    if filtered[-1] < duration - 0.5:
+        filtered.append(duration)
+    bound_times = filtered
 
     # Label sections heuristically by position in song
     labels = _heuristic_labels(len(bound_times) - 1)

@@ -19,13 +19,10 @@ def assemble_video(
 ) -> str:
     # Lazy import — moviepy is slow to import and not needed in dry-run
     try:
-        from moviepy.editor import (
-            AudioFileClip,
-            VideoFileClip,
-            concatenate_videoclips,
-        )
+        from moviepy import AudioFileClip, VideoFileClip, concatenate_videoclips
+        from moviepy import vfx as _vfx
     except ImportError:
-        raise ImportError("moviepy is not installed. Run: pip install 'moviepy<2.0'")
+        raise ImportError("moviepy is not installed. Run: pip install moviepy")
 
     treatment_path = Path(output_dir) / "treatment.json"
     if not treatment_path.exists():
@@ -68,16 +65,14 @@ def assemble_video(
 
         # Trim or loop to fill the target duration
         if raw.duration >= target_dur:
-            clip = raw.subclip(0, target_dur)
+            clip = raw.subclipped(0, target_dur)
         else:
             loops = int(np.ceil(target_dur / raw.duration))
-            from moviepy.editor import concatenate_videoclips as _cat
-
-            clip = _cat([raw] * loops).subclip(0, target_dur)
+            clip = concatenate_videoclips([raw] * loops).subclipped(0, target_dur)
 
         # Apply crossfade transition (skip on the very first clip)
         if video_clips:
-            clip = clip.crossfadein(crossfade)
+            clip = clip.with_effects([_vfx.CrossFadeIn(crossfade)])
 
         video_clips.append(clip)
         print(f"  Shot {n:>3}: {target_dur:.2f}s  ({clip_path.name})")
@@ -86,16 +81,14 @@ def assemble_video(
         raise RuntimeError("No clips could be loaded. Check shots/clips/ directory.")
 
     print(f"\nConcatenating {len(video_clips)} clips with {crossfade}s crossfades…")
-    final = concatenate_videoclips(
-        video_clips, method="compose", padding=-crossfade
-    )
+    final = concatenate_videoclips(video_clips, padding=-crossfade)
 
     # Trim to song length
     final_dur = min(final.duration, song_duration)
-    final = final.subclip(0, final_dur)
+    final = final.subclipped(0, final_dur)
 
     # Attach original audio
-    final = final.set_audio(audio.subclip(0, final_dur))
+    final = final.with_audio(audio.subclipped(0, final_dur))
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -106,8 +99,6 @@ def assemble_video(
         fps=24,
         codec="libx264",
         audio_codec="aac",
-        temp_audiofile=str(out.parent / "temp_audio.m4a"),
-        remove_temp=True,
         logger="bar",
     )
 

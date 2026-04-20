@@ -20,10 +20,18 @@ def transcribe_audio(
         raise ImportError("openai-whisper is not installed. Run: pip install openai-whisper")
 
     print(f"Loading Whisper model ({model_size}) — first run downloads ~150 MB…")
-    model = whisper.load_model(model_size)
+    try:
+        model = whisper.load_model(model_size)
+    except Exception as e:
+        print(f"  WARNING: Could not load Whisper model: {e}")
+        return _empty_lyrics(song_path, output_dir)
 
     print(f"Transcribing: {song_path}")
-    result = model.transcribe(str(song_path), word_timestamps=True, verbose=False)
+    try:
+        result = model.transcribe(str(song_path), word_timestamps=True, verbose=False)
+    except Exception as e:
+        print(f"  WARNING: Transcription failed: {e}")
+        return _empty_lyrics(song_path, output_dir)
 
     words = []
     for segment in result.get("segments", []):
@@ -65,6 +73,24 @@ def transcribe_audio(
         print(f"\n  Preview: {preview}{'…' if len(lyrics['full_text']) > 200 else ''}")
     else:
         print("  (No lyrics detected — instrumental or quiet track)")
+    print(f"Saved: {out}")
+    return lyrics
+
+
+def _empty_lyrics(song_path: str, output_dir: str) -> dict:
+    """Write a stub lyrics.json when Whisper is unavailable."""
+    lyrics = {
+        "song_path": str(song_path),
+        "language": "unknown",
+        "full_text": "",
+        "segments": [],
+        "words": [],
+        "_note": "Transcription skipped — Whisper model unavailable. Edit this file to add lyrics manually.",
+    }
+    out = Path(output_dir) / "lyrics.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(lyrics, indent=2))
+    print("  Saved empty lyrics stub. You can edit shots/lyrics.json to add lyrics manually.")
     print(f"Saved: {out}")
     return lyrics
 

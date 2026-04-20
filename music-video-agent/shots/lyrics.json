@@ -1,0 +1,8 @@
+{
+  "song_path": "/tmp/test_song.wav",
+  "language": "unknown",
+  "full_text": "",
+  "segments": [],
+  "words": [],
+  "_note": "Transcription skipped \u2014 Whisper model unavailable. Edit this file to add lyrics manually."
+}
