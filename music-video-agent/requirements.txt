@@ -1,0 +1,8 @@
+librosa
+openai-whisper
+anthropic
+fal-client
+moviepy<2.0
+python-dotenv
+numpy
+soundfile
